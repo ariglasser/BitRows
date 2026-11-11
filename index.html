@@ -46,22 +46,12 @@
       <div id="lines" class="value">0</div>
       <div class="label">Level</div>
       <div id="level" class="value">1</div>
-      <p class="keys">Keys: arrows move and rotate, space drops, P pauses.</p>
+      <button id="pause" class="pause" aria-label="Pause">&#10074;&#10074;</button>
+      <!-- Only one of these two hints shows: see the end of style.css. -->
+      <p class="hint keys">Keys: arrows move and rotate, space drops, P pauses.</p>
+      <p class="hint touch">Drag to move. Double tap to rotate. Flick down to drop.</p>
     </aside>
   </main>
-
-  <!--
-    Buttons for phones and tablets. `data-action` is our own label; browser.js
-    reads it to know what each button does.
-  -->
-  <nav class="pad">
-    <button data-action="left" aria-label="Move left">&#9664;</button>
-    <button data-action="rotate" aria-label="Rotate">&#10227;</button>
-    <button data-action="right" aria-label="Move right">&#9654;</button>
-    <button data-action="down" aria-label="Move down">&#9660;</button>
-    <button data-action="drop" aria-label="Drop">&#10515;</button>
-    <button data-action="pause" aria-label="Pause">&#10074;&#10074;</button>
-  </nav>
 
   <!--
     type="module" lets browser.js use `import` to load tetris-core.js.

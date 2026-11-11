@@ -33,15 +33,17 @@
 
   /*
     The size of one cell. min() takes the smaller of the two:
-    6.2vw = 6.2% of the screen's width, 3.5vh = 3.5% of its height.
+    6.2vw = 6.2% of the screen's width, 4vh = 4% of its height.
     So the board always fits, on a phone or on a big screen.
   */
-  --cell: min(6.2vw, 3.5vh);
+  --cell: min(6.2vw, 4vh);
 }
 
-/* Dark colours when the phone or computer is set to dark mode. */
+/* Dark colours when the phone or computer is set to dark mode
+   (unless the page is forced light with data-theme="light" on <html>),
+   or when the page is forced dark with data-theme="dark". */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #161615;
     --ink: #ececea;
     --muted: #9a9a94;
@@ -50,10 +52,24 @@
     --button: #2a2a28;
   }
 }
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --ink: #ececea;
+  --muted: #9a9a94;
+  --well: #232322;
+  --grid: #2f2f2d;
+  --button: #2a2a28;
+}
 
 * { box-sizing: border-box; } /* sizes include borders and padding */
 
 body {
+  /* touch-action: none tells the browser not to scroll or zoom when a finger
+     moves on the page: browser.js turns those moves into game gestures. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;   /* no pull-to-refresh while dragging down */
   margin: 0;
   min-height: 100vh;
   background: var(--bg);
@@ -130,7 +146,7 @@ body {
 .panel { display: flex; flex-direction: column; gap: 4px; min-width: 76px; }
 .label { font-size: 12px; color: var(--muted); text-transform: uppercase; margin-top: 8px; }
 .value { font-size: 20px; font-variant-numeric: tabular-nums; }
-.keys { font-size: 12px; color: var(--muted); max-width: 12ch; }
+.hint { font-size: 12px; color: var(--muted); max-width: 12ch; margin: 8px 0 0; }
 
 /* The next piece: a small 4x4 grid. */
 .next {
@@ -141,20 +157,23 @@ body {
 }
 .next > .c0 { background: transparent; }
 
-/* The phone buttons: 6 in a row. */
-.pad { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; width: min(100%, 420px); }
-.pad button {
-  height: 56px;
-  font-size: 22px;
+/* The pause button. */
+.pause {
+  margin-top: 16px;
+  width: 52px;
+  height: 44px;
+  font-size: 18px;
   color: var(--ink);
   background: var(--button);
   border: 1px solid var(--muted);
   border-radius: 10px;
-  touch-action: manipulation;  /* no double-tap zoom on fast tapping */
-  user-select: none;
-  -webkit-user-select: none;
 }
-.pad button:active { background: var(--grid); }
+.pause:active { background: var(--grid); }
 
-/* On touch screens (phones, tablets) hide the keyboard hint. */
-@media (pointer: coarse) { .keys { display: none; } }
+/* Show the keyboard hint on computers and the touch hint on touch screens.
+   (pointer: coarse) means "the main pointer is a finger". */
+.touch { display: none; }
+@media (pointer: coarse) {
+  .keys { display: none; }
+  .touch { display: block; }
+}

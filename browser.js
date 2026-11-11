@@ -149,7 +149,7 @@ function render(game) {
 
   // The message box: shown when paused or game over, hidden otherwise.
   const message = game.over ? 'GAME OVER - tap to play again'
-                : game.paused ? 'PAUSED'
+                : game.paused ? 'PAUSED - tap to continue'
                 : '';
   if (last.message !== message) {
     last.message = message;
@@ -223,19 +223,146 @@ document.addEventListener('keydown', (e) => {
   act(action);
 });
 
-// BUTTONS: one listener for all of them. e.target.closest('button') finds the
-// button that was touched (even if the touch landed on its symbol).
-// 'pointerdown' fires as soon as a finger or mouse goes down: quicker than
-// 'click', which waits for the finger to lift.
-document.querySelector('.pad').addEventListener('pointerdown', (e) => {
-  const button = e.target.closest('button');
-  if (!button) return;
+// THE PAUSE BUTTON. 'pointerdown' fires as soon as a finger or mouse goes
+// down: quicker than 'click', which waits for the finger to lift.
+// stopPropagation keeps this touch from ALSO counting as a gesture below.
+const pauseButton = document.getElementById('pause');
+pauseButton.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  act(button.dataset.action); // dataset.action reads data-action="..."
+  e.stopPropagation();
+  act('pause');
 });
 
-// Tapping the "game over" message also starts a new game.
-messageEl.addEventListener('pointerdown', () => act('restart'));
+
+// -----------------------------------------------------------------------------
+//  TOUCH GESTURES (phone and tablet; they also work with a mouse)
+// -----------------------------------------------------------------------------
+//
+//   drag left / right   the piece follows the finger, one column for every
+//                       cell-width the finger travels
+//   drag down           one row down for every cell-height (soft drop)
+//   flick down fast     hard drop
+//   double tap          rotate
+//   tap                 continue when paused, new game after game over
+//
+//  POINTER EVENTS
+//  The browser reports a finger (or mouse, or pen) as a "pointer":
+//    pointerdown   the finger touches the screen
+//    pointermove   it moves (fires many times per second)
+//    pointerup     it lifts
+//  Each event has e.clientX, e.clientY: the finger's position in pixels from
+//  the top-left of the window (y grows downwards, like our board rows).
+//
+//  THE IDEA
+//  We remember an ANCHOR point. Whenever the finger is a whole cell away from
+//  the anchor, we move the piece one step and move the anchor one cell along.
+//  So a slow drag moves the piece cell by cell, exactly under the finger.
+//
+//  AXIS LOCK: once a drag has clearly gone sideways or down, the other
+//  direction is ignored until the finger lifts. Without this, a drag down
+//  that wobbles a little would also nudge the piece left or right.
+// -----------------------------------------------------------------------------
+
+const TAP_MOVE = 10;       // a touch that moves less than 10 px is a tap
+const TAP_TIME = 250;      // ...and lasts less than 250 ms
+const DOUBLE_TAP = 300;    // two taps within 300 ms = double tap
+const FLICK_SPEED = 1.2;   // px per ms: a downward flick faster than this drops
+
+// The state of the finger currently on the screen (null when none).
+let touch = null;
+let lastTapTime = 0;
+
+// cellSize: the width of one board cell on screen, in pixels, measured now
+// (it depends on the screen size). getBoundingClientRect() gives an
+// element's position and size.
+const cellSize = () => cells[0].getBoundingClientRect().width;
+
+document.addEventListener('pointerdown', (e) => {
+  // e.isPrimary is false for a second finger: we follow only the first one.
+  if (!e.isPrimary) return;
+  touch = {
+    startX: e.clientX, startY: e.clientY, // where the finger came down
+    anchorX: e.clientX, anchorY: e.clientY,
+    startTime: e.timeStamp,               // when (in ms)
+    axis: null,                           // 'x' or 'y' once the drag is locked
+    moved: false,                         // did the piece move in this drag?
+  };
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!touch || !e.isPrimary || game.over || game.paused) return;
+  const size = cellSize();
+  const dx = e.clientX - touch.anchorX; // how far from the anchor
+  const dy = e.clientY - touch.anchorY;
+
+  // Lock the axis on the first clear movement (half a cell).
+  // Math.abs gives the size of a number without its sign: Math.abs(-5) = 5.
+  if (!touch.axis) {
+    if (Math.abs(dx) > size / 2 && Math.abs(dx) > Math.abs(dy)) touch.axis = 'x';
+    else if (dy > size / 2) touch.axis = 'y';
+    else return; // not clear yet
+  }
+
+  let changed = false;
+  if (touch.axis === 'x') {
+    // One step for each whole cell; the anchor follows so the next step needs
+    // another whole cell. dx can pass several cells in one event, hence `while`.
+    while (e.clientX - touch.anchorX >= size) {
+      tryMove(game, 1, 0);
+      touch.anchorX += size;
+      changed = true;
+    }
+    while (touch.anchorX - e.clientX >= size) {
+      tryMove(game, -1, 0);
+      touch.anchorX -= size;
+      changed = true;
+    }
+  } else {
+    while (e.clientY - touch.anchorY >= size) {
+      if (tryMove(game, 0, 1)) game.score += 1; // soft drop: 1 point per row
+      touch.anchorY += size;
+      changed = true;
+    }
+  }
+  if (changed) {
+    touch.moved = true;
+    render(game);
+  }
+});
+
+document.addEventListener('pointerup', (e) => {
+  if (!touch || !e.isPrimary) return;
+  const t = touch;
+  touch = null;
+
+  const dx = e.clientX - t.startX;
+  const dy = e.clientY - t.startY;
+  const time = e.timeStamp - t.startTime;
+
+  // A TAP: short and almost no movement.
+  if (Math.abs(dx) < TAP_MOVE && Math.abs(dy) < TAP_MOVE && time < TAP_TIME) {
+    if (game.over || game.paused) {
+      act(game.over ? 'restart' : 'pause'); // new game, or continue
+      return;
+    }
+    // Second tap soon after the first one: a double tap = rotate.
+    if (e.timeStamp - lastTapTime < DOUBLE_TAP) {
+      act('rotate');
+      lastTapTime = 0; // a third tap starts a new pair
+    } else {
+      lastTapTime = e.timeStamp;
+    }
+    return;
+  }
+
+  // A FLICK: a fast downward drag drops the piece. Speed = distance / time.
+  if (t.axis === 'y' && dy / time > FLICK_SPEED && dy > 2 * cellSize()) {
+    act('drop');
+  }
+});
+
+// If the browser takes the touch away (for example a system gesture), forget it.
+document.addEventListener('pointercancel', () => { touch = null; });
 
 // Pause by itself when you switch to another tab or app.
 document.addEventListener('visibilitychange', () => {

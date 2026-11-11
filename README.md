@@ -42,8 +42,10 @@ Open the GitHub Pages site, or serve the folder with any web server
 Opening `index.html` straight from disk does not work: browsers load
 JavaScript modules only from a web server.
 
-On a phone use the buttons under the board. On a keyboard: arrows move and
-rotate, space drops, `p` pauses.
+On a phone: drag left or right to move the piece (it follows your finger,
+one column per cell), drag down to move it down, double tap to rotate, flick
+down fast to drop. Tap to continue after a pause. On a keyboard: arrows move
+and rotate, space drops, `p` pauses.
 
 ## Play in the terminal
 
