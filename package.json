@@ -1,0 +1,13 @@
+{
+  "name": "tetris",
+  "version": "1.0.0",
+  "description": "Terminal Tetris where each board row is a 10-bit integer",
+  "main": "tetris.js",
+  "bin": { "tetris": "tetris.js" },
+  "scripts": {
+    "start": "node tetris.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}
