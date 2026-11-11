@@ -118,56 +118,74 @@ const FULL = (1 << WIDTH) - 1; // = 1023
 //        box row 2:   0b0000   ->   .  .  .  .
 //        box row 3:   0b0000   ->   .  .  .  .
 //
-//  Rotating a piece is done the simple way: we wrote down all 4 rotations by
-//  hand. Rotation number 0, 1, 2, 3 = turned 0, 90, 180, 270 degrees clockwise.
+//  We write down only rotation 0 of each piece by hand. The program then
+//  turns it 90 degrees clockwise to make rotation 1, turns rotation 1 to make
+//  rotation 2, and rotation 2 to make rotation 3. A fifth turn would give back
+//  rotation 0, so 4 rotations are all there are.
 //
 //  JAVASCRIPT NOTES
 //  [a, b, c]           is an ARRAY: a list of values. list[0] is the first one.
 //  { I: ..., O: ... }  is an OBJECT: values stored under names ("keys").
-//                      PIECES.T gets the value stored under the name T.
-//                      PIECES['T'] means exactly the same thing.
-//
-//  So PIECES.T[1] is the T piece's rotation 1 (an array of 4 numbers), and
-//  PIECES.T[1][0] is the top row of that rotation.
+//                      SHAPES.T gets the value stored under the name T.
+//                      SHAPES['T'] means exactly the same thing.
 // -----------------------------------------------------------------------------
 
-const PIECES = {
-  // I: the long bar. Lying flat in rotation 0, standing in rotation 1.
-  I: [[0b0000, 0b1111, 0b0000, 0b0000],
-      [0b0010, 0b0010, 0b0010, 0b0010],
-      [0b0000, 0b0000, 0b1111, 0b0000],
-      [0b0100, 0b0100, 0b0100, 0b0100]],
-  // O: the square. Rotating does not change it, so all 4 are the same.
-  O: [[0b0110, 0b0110, 0b0000, 0b0000],
-      [0b0110, 0b0110, 0b0000, 0b0000],
-      [0b0110, 0b0110, 0b0000, 0b0000],
-      [0b0110, 0b0110, 0b0000, 0b0000]],
-  // T: a T shape.
-  T: [[0b0100, 0b1110, 0b0000, 0b0000],
-      [0b0100, 0b0110, 0b0100, 0b0000],
-      [0b0000, 0b1110, 0b0100, 0b0000],
-      [0b0100, 0b1100, 0b0100, 0b0000]],
-  // S: a step going up to the right.
-  S: [[0b0110, 0b1100, 0b0000, 0b0000],
-      [0b0100, 0b0110, 0b0010, 0b0000],
-      [0b0000, 0b0110, 0b1100, 0b0000],
-      [0b1000, 0b1100, 0b0100, 0b0000]],
-  // Z: a step going down to the right (the mirror of S).
-  Z: [[0b1100, 0b0110, 0b0000, 0b0000],
-      [0b0010, 0b0110, 0b0100, 0b0000],
-      [0b0000, 0b1100, 0b0110, 0b0000],
-      [0b0100, 0b1100, 0b1000, 0b0000]],
-  // J: an L shape with its foot to the left.
-  J: [[0b1000, 0b1110, 0b0000, 0b0000],
-      [0b0110, 0b0100, 0b0100, 0b0000],
-      [0b0000, 0b1110, 0b0010, 0b0000],
-      [0b0100, 0b0100, 0b1100, 0b0000]],
-  // L: an L shape with its foot to the right (the mirror of J).
-  L: [[0b0010, 0b1110, 0b0000, 0b0000],
-      [0b0100, 0b0100, 0b0110, 0b0000],
-      [0b0000, 0b1110, 0b1000, 0b0000],
-      [0b1100, 0b0100, 0b0100, 0b0000]],
+// SHAPES: rotation 0 of every piece, as 4 row numbers (top row first).
+// `size` is the side of the smallest square box the piece turns in:
+//   4 for the I bar, 3 for J L S T Z, 2 for the O square.
+// The piece always sits in the TOP-LEFT corner of the 4x4 box.
+const SHAPES = {
+  I: { size: 4, rows: [0b0000, 0b1111, 0b0000, 0b0000] }, // the long bar
+  O: { size: 2, rows: [0b1100, 0b1100, 0b0000, 0b0000] }, // the square
+  T: { size: 3, rows: [0b0100, 0b1110, 0b0000, 0b0000] }, // a T
+  S: { size: 3, rows: [0b0110, 0b1100, 0b0000, 0b0000] }, // a step up to the right
+  Z: { size: 3, rows: [0b1100, 0b0110, 0b0000, 0b0000] }, // a step down (mirror of S)
+  J: { size: 3, rows: [0b1000, 0b1110, 0b0000, 0b0000] }, // an L with its foot left
+  L: { size: 3, rows: [0b0010, 0b1110, 0b0000, 0b0000] }, // an L with its foot right
 };
+
+// rotate: turn a whole 4x4 grid 90 degrees clockwise.
+//
+// The rule: the old LEFT column becomes the new TOP row, read from the bottom
+// row up. In general, new row r is made of old column r, and old row i lands
+// at bit i of it (the bottom row, i = 3, becomes the new LEFT column, bit 8).
+//
+//   rows.map((_, r) => ...)   builds the 4 new rows, r = 0, 1, 2, 3.
+//                             (`_` is the old row itself; we don't need it here.)
+//   rows.reduce(f, 0)         starts with 0 and runs f once per old row,
+//                             passing the result along: acc = "so far".
+//   row >> (3 - r) & 1        the bit of old column r: shift it to the far
+//                             right, keep only that bit. 0 or 1.
+//   << i                      move it to bit i of the new row.
+//   acc | ...                 add it to the new row so far.
+const rotate = (rows) =>
+  rows.map((_, r) =>
+    rows.reduce((acc, row, i) => acc | (row >> (3 - r) & 1) << i, 0));
+
+// turn: rotate a piece inside ITS OWN box, not the whole 4x4 box.
+//
+// A 4x4 turn spins around the centre of the 4x4 box. A smaller piece in the
+// top-left corner would land in the top-RIGHT corner: (4 - size) columns too
+// far right. Shifting every row left by (4 - size) puts it back.
+// Moving one column left = one bit to the left = << 1.
+//   I (size 4): no shift.   J L S T Z (size 3): << 1.   O (size 2): << 2.
+const turn = (rows, size) => rotate(rows).map((row) => row << (4 - size));
+
+// PIECES: all 4 rotations of every piece, built from SHAPES.
+// PIECES.T[1] is the T piece's rotation 1 (4 numbers), PIECES.T[1][0] its top row.
+//
+// `for (const name in SHAPES)` runs once for each name in SHAPES: 'I', 'O', ...
+// `const { size, rows } = SHAPES[name]` takes the two values out of the
+// object in one go (called "destructuring").
+const PIECES = {};
+for (const name in SHAPES) {
+  const { size, rows } = SHAPES[name];
+  const r0 = rows;
+  const r1 = turn(r0, size);
+  const r2 = turn(r1, size);
+  const r3 = turn(r2, size);
+  PIECES[name] = [r0, r1, r2, r3];
+}
 
 // Object.keys(PIECES) gives the list of names: ['I', 'O', 'T', 'S', 'Z', 'J', 'L'].
 // We use it to choose a random piece.
@@ -366,13 +384,16 @@ function pick(random) {
 // "next". If the new piece doesn't even fit where it appears, the stack has
 // reached the top: game over.
 function spawn(game) {
-  // x: 3 puts the 4-wide box in the middle (columns 3..6 of 0..9).
+  // x: centre the piece. (WIDTH - size) / 2 columns are left free on its
+  // left: 3 for the I bar and J L S T Z, 4 for the O square, so every piece
+  // appears in the middle. Math.floor rounds 3.5 down to 3.
   // y: -1 puts the box's top row one row ABOVE the board (row -1).
   // For the I piece, whose top box row is empty, that means the bar appears
   // right away in row 0. For the other pieces, their top box row starts
   // hidden above the board and slides into view on the first gravity tick.
   // fits() allows this: rows above the top count as free space.
-  game.piece = { name: game.next, rot: 0, x: 3, y: -1 };
+  const size = SHAPES[game.next].size;
+  game.piece = { name: game.next, rot: 0, x: Math.floor((WIDTH - size) / 2), y: -1 };
   game.next = pick(game.random);
   if (!fits(game.board, shapeOf(game.piece), game.piece.x, game.piece.y)) {
     // ! means NOT: "if it does NOT fit"
@@ -661,6 +682,6 @@ if (require.main === module) run();
 // module.exports lists what other files get when they require() this file.
 // The tests use these to check the algorithm without a terminal.
 module.exports = {
-  WIDTH, HEIGHT, FULL, PIECES, emptyBoard, fits, lock, clearLines,
+  WIDTH, HEIGHT, FULL, SHAPES, PIECES, rotate, turn, emptyBoard, fits, lock, clearLines,
   newGame, step, hardDrop, tryMove, shiftRow, PAD,
 };

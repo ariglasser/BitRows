@@ -26,7 +26,7 @@ const assert = require('node:assert');
 const T = require('./tetris');
 
 // Two shapes we use a lot (see PART 2 in tetris.js):
-const O = T.PIECES.O[0]; // the square: box rows 0b0110, 0b0110 -> box columns 1 and 2
+const O = T.PIECES.O[0]; // the square: box rows 0b1100, 0b1100 -> box columns 0 and 1
 const I = T.PIECES.I[0]; // the flat bar: box row 1 is 0b1111
 
 // The checks we use:
@@ -47,22 +47,22 @@ test('piece lands where the AND with the next row stops being 0', () => {
   // Drop the square by hand, exactly like gravity does: start at row 0 and
   // keep going down while the NEXT row still fits.
   let y = 0;
-  while (T.fits(board, O, 3, y + 1)) y++;
+  while (T.fits(board, O, 4, y + 1)) y++;
   // The square is 2 rows tall, so on an empty board it stops with its top at
   // row 18 and its bottom at row 19 (the last row).
   assert.strictEqual(y, 18);
 
   // Glue it in with OR.
-  T.lock(board, O, 3, y);
-  // Box columns 1 and 2, with the box at x = 3, are board columns 4 and 5.
+  T.lock(board, O, 4, y);
+  // Box columns 0 and 1, with the box at x = 4, are board columns 4 and 5.
   // Column 4 is bit 5 (worth 32), column 5 is bit 4 (worth 16): 32 + 16 = 48.
   assert.strictEqual(board[18], 48);
   assert.strictEqual(board[19], 48);
 
   // A second square fits on top of the first (rows 16-17)...
-  assert.strictEqual(T.fits(board, O, 3, 16), true);
+  assert.strictEqual(T.fits(board, O, 4, 16), true);
   // ...but not one row lower (rows 17-18), because row 18 is taken.
-  assert.strictEqual(T.fits(board, O, 3, 17), false);
+  assert.strictEqual(T.fits(board, O, 4, 17), false);
 });
 
 test('walls: I piece fits from column 0 to 6, not beyond', () => {
