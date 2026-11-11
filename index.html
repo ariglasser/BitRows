@@ -1,0 +1,73 @@
+<!doctype html>
+<!--
+  TETRIS IN THE BROWSER: the page.
+
+  This file only describes WHAT is on the page: a board, a side panel and
+  some buttons. It holds no game logic.
+    style.css       says how it looks (sizes, colours)
+    browser.js      fills the board and reacts to keys and buttons
+    tetris-core.js  the game itself (shared with the terminal version)
+
+  Things written between < and > are HTML "tags". Most come in pairs:
+  <div> ... </div> is a box with something inside. `id="board"` gives an
+  element a name, so the JavaScript can find it. `class="..."` gives it one
+  or more labels, which the CSS uses to style it.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Makes the page fit a phone screen instead of a shrunken desktop page. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Bit-Row Tetris</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <!--
+      The board. It starts EMPTY: browser.js creates its 200 cells once,
+      when the page loads, and never creates or deletes them again.
+    -->
+    <div class="well">
+      <div class="board-wrap">
+        <div id="board" class="board"></div>
+        <!-- Shown only when paused or game over (browser.js sets the text). -->
+        <div id="message" class="message" hidden></div>
+      </div>
+      <!-- The number of each row, like in the terminal version. -->
+      <div id="rownums" class="rownums"></div>
+    </div>
+
+    <aside class="panel">
+      <div class="label">Next</div>
+      <div id="next" class="next"></div>
+      <div class="label">Score</div>
+      <div id="score" class="value">0</div>
+      <div class="label">Lines</div>
+      <div id="lines" class="value">0</div>
+      <div class="label">Level</div>
+      <div id="level" class="value">1</div>
+      <p class="keys">Keys: arrows move and rotate, space drops, P pauses.</p>
+    </aside>
+  </main>
+
+  <!--
+    Buttons for phones and tablets. `data-action` is our own label; browser.js
+    reads it to know what each button does.
+  -->
+  <nav class="pad">
+    <button data-action="left" aria-label="Move left">&#9664;</button>
+    <button data-action="rotate" aria-label="Rotate">&#10227;</button>
+    <button data-action="right" aria-label="Move right">&#9654;</button>
+    <button data-action="down" aria-label="Move down">&#9660;</button>
+    <button data-action="drop" aria-label="Drop">&#10515;</button>
+    <button data-action="pause" aria-label="Pause">&#10074;&#10074;</button>
+  </nav>
+
+  <!--
+    type="module" lets browser.js use `import` to load tetris-core.js.
+    (Modules only load from a web server, such as GitHub Pages, not from a
+    file opened straight from disk.)
+  -->
+  <script type="module" src="browser.js"></script>
+</body>
+</html>

@@ -10,20 +10,18 @@
 //  You should see "pass 5" and "fail 0".
 //
 //  These tests never open the game screen. They load the functions from
-//  tetris.js and check the board numbers directly.
+//  tetris-core.js and check the board numbers directly.
 // =============================================================================
 
-'use strict';
-
-// require('...') loads code from another file or from Node itself.
-//   node:test    Node's built-in test runner. test('name', f) registers a test.
-//   node:assert  checks. If a check is wrong, it throws an error = the test fails.
-//   ./tetris     our game file (./ means "in this same folder"). We get the
-//                things listed in its module.exports, stored here as T.
-//                So T.fits is the fits function from tetris.js.
-const test = require('node:test');
-const assert = require('node:assert');
-const T = require('./tetris');
+// import loads code from another file or from Node itself.
+//   node:test          Node's built-in test runner. test('name', f) registers a test.
+//   node:assert        checks. If a check is wrong, it throws an error = the test fails.
+//   ./tetris-core.js   our game (./ means "in this same folder").
+//                      `* as T` takes everything it exports, stored as T.
+//                      So T.fits is the fits function from tetris-core.js.
+import test from 'node:test';
+import assert from 'node:assert';
+import * as T from './tetris-core.js';
 
 // Two shapes we use a lot (see PART 2 in tetris.js):
 const O = T.PIECES.O[0]; // the square: box rows 0b1100, 0b1100 -> box columns 0 and 1
@@ -52,8 +50,9 @@ test('piece lands where the AND with the next row stops being 0', () => {
   // row 18 and its bottom at row 19 (the last row).
   assert.strictEqual(y, 18);
 
-  // Glue it in with OR.
-  T.lock(board, O, 4, y);
+  // Glue it in with OR. (lock also writes the colour into 3 planes; this test
+  // only looks at the board.)
+  T.lock(board, T.emptyPlanes(), O, 4, y, T.COLOR.O);
   // Box columns 0 and 1, with the box at x = 4, are board columns 4 and 5.
   // Column 4 is bit 5 (worth 32), column 5 is bit 4 (worth 16): 32 + 16 = 48.
   assert.strictEqual(board[18], 48);
@@ -93,7 +92,7 @@ test('full rows are removed and rows above fall', () => {
   board[16] = 512;  // one block in the left column (bit 9)
 
   // Two full rows must disappear...
-  assert.strictEqual(T.clearLines(board), 2);
+  assert.strictEqual(T.clearLines(board, T.emptyPlanes()), 2);
   // ...and the other rows fall down, in the same order.
   assert.strictEqual(board[19], 1);
   assert.strictEqual(board[18], 512);
@@ -120,4 +119,33 @@ test('game: hard drops end in game over, score counts', () => {
   assert.ok(g.score > 0);
   // Every row must still be a valid 10-bit number (0 to 1023).
   for (const row of g.board) assert.ok(row >= 0 && row <= 1023);
+});
+
+test('colours: bit planes hold each cell\'s colour and fall with the rows', () => {
+  const board = T.emptyBoard();
+  const planes = T.emptyPlanes();
+
+  // Lock a J (colour 6 = binary 110) at the bottom: rows 18 and 19.
+  T.lock(board, planes, T.PIECES.J[0], 0, 18, T.COLOR.J);
+  // J rotation 0 at x = 0: row 18 = column 0 (512), row 19 = columns 0-2 (896).
+  assert.strictEqual(board[18], 512);
+  assert.strictEqual(board[19], 896);
+  // Colour 6 = 110: plane 0 empty, planes 1 and 2 hold the blocks.
+  assert.strictEqual(planes[0][19], 0);
+  assert.strictEqual(planes[1][19], 896);
+  assert.strictEqual(planes[2][19], 896);
+  assert.strictEqual(T.colorAt(planes, 19, 512), 6);
+  assert.strictEqual(T.colorAt(planes, 19, 1), 0); // column 9: empty
+
+  // Make row 19 full by hand and clear it. Row 18's J block must fall to
+  // row 19 and keep its colour 6.
+  board[19] = T.FULL;
+  T.clearLines(board, planes);
+  assert.strictEqual(board[19], 512);
+  assert.strictEqual(T.colorAt(planes, 19, 512), 6);
+
+  // The main board is always the OR of the 3 planes.
+  for (let r = 0; r < T.HEIGHT; r++) {
+    assert.strictEqual(board[r], planes[0][r] | planes[1][r] | planes[2][r]);
+  }
 });

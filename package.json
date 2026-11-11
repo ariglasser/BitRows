@@ -1,11 +1,12 @@
 {
   "name": "tetris",
-  "version": "1.0.0",
-  "description": "Terminal Tetris where each board row is a 10-bit integer",
-  "main": "tetris.js",
-  "bin": { "tetris": "tetris.js" },
+  "version": "2.0.0",
+  "description": "Tetris where each board row is a 10-bit integer, for the terminal and the browser",
+  "type": "module",
+  "main": "tetris-core.js",
+  "bin": { "tetris": "terminal.js" },
   "scripts": {
-    "start": "node tetris.js",
+    "start": "node terminal.js",
     "test": "node --test"
   },
   "engines": { "node": ">=18" },

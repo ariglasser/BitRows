@@ -1,15 +1,16 @@
-#!/usr/bin/env node
-// ^ The line above is called a "shebang". On Linux/macOS/Termux it lets you
-//   run this file directly as `./tetris.js` (after `chmod +x tetris.js`).
-//   It tells the system: "run this file with the program called node".
-//   JavaScript itself ignores it.
-
 // =============================================================================
-//  TERMINAL TETRIS, WRITTEN TO BE READ AND LEARNED FROM
+//  TETRIS CORE: THE GAME ITSELF, WRITTEN TO BE READ AND LEARNED FROM
 // =============================================================================
 //
-//  This file is the whole game. It runs with Node.js in a terminal (a text
-//  window), not in a web browser. Start it with:   node tetris.js
+//  This file holds the game's rules and its board, and NOTHING about how the
+//  game is shown. Two other files show it:
+//
+//    terminal.js   draws it with text in a terminal     (node terminal.js)
+//    browser.js    draws it in a web page               (open index.html)
+//
+//  Both use the very same board and rules from this file. Keeping "what the
+//  game is" apart from "how it looks" means each part stays small and you can
+//  read one without the other.
 //
 //  HOW TO READ THIS FILE
 //  ---------------------
@@ -20,9 +21,9 @@
 //  The file has five parts:
 //    PART 1  Numbers as rows of bits (the heart of the algorithm)
 //    PART 2  The pieces
-//    PART 3  The board: does a piece fit? lock it, clear full rows
+//    PART 3  The board: does a piece fit? lock it, clear full rows, colours
 //    PART 4  The game rules (score, gravity, new pieces)
-//    PART 5  The terminal: drawing the screen and reading the keyboard
+//    PART 5  What to draw: the board plus the falling piece, ready for display
 //
 //  THE ALGORITHM IN ONE PARAGRAPH
 //  ------------------------------
@@ -38,10 +39,13 @@
 //  is removed.
 // =============================================================================
 
-// 'use strict' turns on JavaScript's "strict mode": the computer complains
-// about some common mistakes (for example using a variable you never
-// declared) instead of silently guessing. It is good practice to keep it.
-'use strict';
+// THIS FILE IS A "MODULE"
+// A module is a file that shares some of its names with other files. Names
+// marked with the word `export` (see the end of this file) can be used by any
+// file that says  import { ... } from './tetris-core.js'.
+// Modules automatically run in JavaScript's "strict mode": the computer
+// complains about common mistakes (like using a name you never declared)
+// instead of silently guessing.
 
 
 // =============================================================================
@@ -191,6 +195,11 @@ for (const name in SHAPES) {
 // We use it to choose a random piece.
 const NAMES = Object.keys(PIECES);
 
+// COLOUR NUMBERS: each piece gets a number 1..7 (0 means "empty cell").
+// 7 fits in 3 bits (binary 111), which is why the colour is stored in 3 bit
+// planes (see PART 3). The display files turn the number into a real colour.
+const COLOR = { I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7 };
+
 
 // =============================================================================
 //  PART 3: THE BOARD
@@ -227,6 +236,24 @@ const NAMES = Object.keys(PIECES);
 //  If any bit of a shifted piece lands on a wall bit, the piece hit a wall.
 //  Again that is a single AND test, just like checking the blocks. This is the
 //  kind of trick an assembler programmer loves: no "if x < 0" special cases.
+//
+//  COLOURS: BIT PLANES
+//  -------------------
+//  The board says only WHETHER a cell is full (1 bit per cell), not WHICH
+//  piece filled it. To remember colours we use the trick old video cards (EGA)
+//  used: BIT PLANES. We keep 3 more boards, exactly like the main one: 20
+//  numbers each. A cell's colour number (1..7) is written in binary across
+//  them, one bit per plane:
+//
+//      colour 6 (J) = binary 110  ->  plane 0: 0   plane 1: 1   plane 2: 1
+//
+//  So to read a cell's colour, take its bit from each plane:
+//      colour = (bit in plane 0) * 1 + (bit in plane 1) * 2 + (bit in plane 2) * 4
+//
+//  Nice consequences:
+//    * The main board is always  plane0 | plane1 | plane2  (any colour is not 0),
+//      so fits() and the AND test don't change at all.
+//    * Clearing a row removes it from all 4 boards, so colours fall with blocks.
 // -----------------------------------------------------------------------------
 
 const PAD = 3; // the number of extra bits on the right
@@ -294,31 +321,52 @@ function fits(board, shape, x, y) {
   return true;
 }
 
-// lock: glue the piece into the board for good, using OR.
+// emptyPlanes: 3 empty colour planes (3 boards of 20 zeros).
+// [1, 2, 3].map(f) runs f for each item and collects the answers in a new
+// list. Here we ignore the items and just make 3 empty boards.
+function emptyPlanes() {
+  return [0, 1, 2].map(() => emptyBoard());
+}
+
+// lock: glue the piece into the board for good, using OR, and write its
+// colour number into the bit planes.
 // After this the piece is just part of the board's numbers.
-function lock(board, shape, x, y) {
+function lock(board, planes, shape, x, y, color) {
   for (let i = 0; i < 4; i++) {
     const row = y + i;
     // && means AND for conditions: all three must be true.
     // Only touch rows that have piece blocks and are really on the board.
     if (shape[i] && row >= 0 && row < HEIGHT) {
       // shiftRow(...) is in the padded world, so >> PAD shifts it back to the
-      // normal 10-bit row. Then OR it in. `a |= b` is short for `a = a | b`.
-      board[row] |= shiftRow(shape[i], x) >> PAD;
+      // normal 10-bit row.
+      const bits = shiftRow(shape[i], x) >> PAD;
+      // Glue it into the board. `a |= b` is short for `a = a | b`.
+      board[row] |= bits;
+      // Colour: for plane b (0, 1, 2), look at bit b of the colour number.
+      // (color >> b) & 1 is that bit: 1 means "this plane gets the blocks".
+      for (let b = 0; b < 3; b++) {
+        if ((color >> b) & 1) planes[b][row] |= bits;
+      }
     }
   }
 }
 
 // clearLines: remove every row equal to FULL (1023) and let the rows above
-// fall down. Returns how many rows were removed (0 to 4).
-function clearLines(board) {
+// fall down, in the board AND in the 3 colour planes, so colours fall too.
+// Returns how many rows were removed (0 to 4).
+function clearLines(board, planes) {
   let cleared = 0; // `let` because this number changes as we count
 
   // Walk from the bottom row (19) up to the top row (0). row-- means row = row - 1.
   for (let row = HEIGHT - 1; row >= 0; row--) {
     if (board[row] === FULL) {
-      board.splice(row, 1); // splice(row, 1) cuts 1 item out of the list at `row`
-      board.unshift(0);     // unshift(0) puts a new empty row (0) at the very top
+      // [board, ...planes] is one list with the board and the 3 planes
+      // (`...` spreads the planes' list out into the new list).
+      // We do the same thing to all 4 of them:
+      for (const layer of [board, ...planes]) {
+        layer.splice(row, 1); // splice(row, 1) cuts 1 item out of the list at `row`
+        layer.unshift(0);     // unshift(0) puts a new empty row (0) at the very top
+      }
       cleared++;
       // Every row above moved down by one, so the row now at this index is
       // a new one we haven't checked. row++ cancels the loop's row-- so we
@@ -336,7 +384,8 @@ function clearLines(board) {
 //
 //  All the information about one game is kept in one object called `game`:
 //
-//    game.board    the 20 row numbers
+//    game.board    the 20 row numbers (which cells are full)
+//    game.planes   3 more lists of 20 row numbers: the colours (bit planes)
 //    game.piece    the falling piece: { name, rot, x, y }
 //                    name = 'T', 'I', ...   rot = rotation 0..3
 //                    x, y = column and row of the top-left corner of its box
@@ -359,6 +408,7 @@ const LINE_SCORES = [0, 100, 300, 500, 800];
 function newGame(random = Math.random) {
   const game = {
     board: emptyBoard(),
+    planes: emptyPlanes(),
     score: 0,
     lines: 0,
     level: 1,
@@ -454,8 +504,9 @@ function step(game) {
   if (tryMove(game, 0, 1)) return;
 
   // It does NOT fit one row lower: it has landed.
-  lock(game.board, shapeOf(game.piece), game.piece.x, game.piece.y); // glue with OR
-  const n = clearLines(game.board);   // remove full rows, n = how many
+  const p = game.piece;
+  lock(game.board, game.planes, shapeOf(p), p.x, p.y, COLOR[p.name]); // glue with OR
+  const n = clearLines(game.board, game.planes); // remove full rows, n = how many
   game.lines += n;
   game.score += LINE_SCORES[n] * game.level;
   // Every 10 rows cleared, go up one level (the game gets faster).
@@ -475,213 +526,48 @@ function hardDrop(game) {
 
 
 // =============================================================================
-//  PART 5: THE TERMINAL (drawing and keyboard)
+//  PART 5: WHAT TO DRAW
 // =============================================================================
 //
-//  ESCAPE CODES
-//  A terminal shows the text a program writes. But it also understands special
-//  hidden commands, called "ANSI escape codes", that start with the ESC
-//  character (written '\x1b' in JavaScript: character number 1b in hexadecimal
-//  = 27). The ones we use:
-//
-//    ESC[H       move the cursor to the top-left corner
-//    ESC[2J      clear the whole screen
-//    ESC[K       clear from the cursor to the end of the line
-//    ESC[?25l    hide the blinking cursor     ESC[?25h  show it again
-//    ESC[36m     switch the text color (36 = cyan, 31 = red, ...)
-//    ESC[0m      back to the normal color
-//
-//  Instead of clearing the screen every frame (which flickers), we move the
-//  cursor to the top-left and write the new picture over the old one.
-//
-//  `process.stdout.write(text)` sends text to the terminal (stdout = "standard
-//  output", the screen). `process.stdin` is the keyboard ("standard input").
+//  The falling piece is NOT part of the board until it lands. A display needs
+//  the board WITH the piece. view(game) makes that picture, as 3 colour planes
+//  (20 numbers each), without changing the game. Both terminal.js and
+//  browser.js draw from it.
 // -----------------------------------------------------------------------------
 
-const ESC = '\x1b[';
-
-// A color for each piece (terminal color numbers).
-const COLORS = { I: 36, O: 33, T: 35, S: 32, Z: 31, J: 34, L: 37 };
-
-// render: draw the whole screen once.
-function render(game) {
-  // The falling piece is NOT part of game.board until it lands. To draw it,
-  // we work out, for each board row, which bits the piece covers there.
-  const shape = shapeOf(game.piece);
-  const pieceRows = new Array(HEIGHT).fill(0); // 20 zeros, like an empty board
+// view: copies of the 3 colour planes with the falling piece added.
+function view(game) {
+  // plane.slice() makes a COPY of a list, so changing the copy leaves the
+  // real game untouched.
+  const planes = game.planes.map((plane) => plane.slice());
+  const p = game.piece;
+  const shape = shapeOf(p);
+  const color = COLOR[p.name];
   for (let i = 0; i < 4; i++) {
-    const row = game.piece.y + i;
-    if (row >= 0 && row < HEIGHT) {
-      pieceRows[row] = shiftRow(shape[i], game.piece.x) >> PAD;
+    const row = p.y + i;
+    if (shape[i] && row >= 0 && row < HEIGHT) {
+      const bits = shiftRow(shape[i], p.x) >> PAD;
+      for (let b = 0; b < 3; b++) {
+        if ((color >> b) & 1) planes[b][row] |= bits;
+      }
     }
   }
-  const color = COLORS[game.piece.name];
-  const nextShape = PIECES[game.next][0]; // the next piece, rotation 0
-
-  // We build the picture as a list of text lines, then print them all at once.
-  // `lines.push(x)` adds x to the end of the list.
-  const lines = [];
-  lines.push('  TETRIS (bit rows)');
-  // '--'.repeat(10) makes '--' ten times. The + joins pieces of text.
-  lines.push('  +' + '--'.repeat(WIDTH) + '+');
-
-  for (let r = 0; r < HEIGHT; r++) {      // for each board row, top to bottom
-    let s = '  |';                        // the text for this line, so far
-    for (let c = 0; c < WIDTH; c++) {     // for each column, left to right
-      // The bit for column c: column 0 is 1 << 9 = 512, column 9 is 1 << 0 = 1.
-      const bit = 1 << (WIDTH - 1 - c);
-      // Is this bit set in the falling piece? In the board? Or empty?
-      // Text in `backticks` can include values with ${...}: here we wrap
-      // '[]' in the color code and the "normal color" code.
-      if (pieceRows[r] & bit) s += `${ESC}${color}m[]${ESC}0m`;
-      else if (game.board[r] & bit) s += '[]';
-      else s += ' .';
-    }
-    s += '|';
-
-    // To the right of each row, show the row's NUMBER, so you can watch the
-    // algorithm work: piece and board OR'ed together. padStart(4) adds spaces
-    // in front so all numbers line up (e.g. '  48', '1023').
-    s += ' ' + String(game.board[r] | pieceRows[r]).padStart(4);
-
-    // The side panel: on some rows, add extra text after the number.
-    if (r === 1) s += '   Next:';
-    if (r >= 2 && r <= 5) {
-      // Draw the next piece: box row (r - 2), its 4 bits from left to right.
-      // 8 >> c is 8, 4, 2, 1 for c = 0..3: the bit for box column c.
-      s += '   ';
-      for (let c = 0; c < 4; c++) s += (nextShape[r - 2] & (8 >> c)) ? '[]' : '  ';
-    }
-    if (r === 8) s += `   Score: ${game.score}`;
-    if (r === 9) s += `   Lines: ${game.lines}`;
-    if (r === 10) s += `   Level: ${game.level}`;
-    if (r === 13) s += '   arrows: move/rotate';
-    if (r === 14) s += '   space: drop  p: pause';
-    if (r === 15) s += '   q: quit';
-    lines.push(s);
-  }
-
-  lines.push('  +' + '--'.repeat(WIDTH) + '+');
-  if (game.over) lines.push('  GAME OVER - press q to quit, r to restart');
-  else if (game.paused) lines.push('  PAUSED - press p to continue');
-  else lines.push('');
-
-  // Go to the top-left (ESC[H), then print every line followed by ESC[K
-  // (erase leftovers of the previous, possibly longer, line).
-  // lines.map(f) makes a new list by running f on each line.
-  // (l) => l + ESC + 'K' is a short way to write a small function:
-  //   "given l, return l + ESC + 'K'".
-  // .join('\n') glues the list into one text with a line break between items.
-  process.stdout.write(ESC + 'H' + lines.map((l) => l + ESC + 'K').join('\n'));
+  return planes;
 }
 
-// run: start the game in the terminal. Everything above was preparation;
-// this is where the program actually begins doing things.
-function run() {
-  // isTTY is true when we are connected to a real terminal (not, for example,
-  // a file). Without one we can't read single key presses, so we stop.
-  if (!process.stdin.isTTY) {
-    console.error('Run this in a terminal: node tetris.js');
-    process.exit(1); // end the program; 1 means "ended with a problem"
-  }
-
-  let game = newGame();
-  let timer = null; // the gravity timer, set by schedule()
-
-  // HOW TIME WORKS HERE
-  // setTimeout(f, ms) asks Node: "call function f once, ms milliseconds from
-  // now" (1000 ms = 1 second). Meanwhile Node keeps listening for keys.
-  // Each gravity tick sets up the next one, so the piece falls forever.
-  // This "wait for things to happen and react" style is called the EVENT LOOP.
-
-  // speed: milliseconds between gravity ticks. Level 1: 800 ms. Each level is
-  // 70 ms faster, but never faster than 80 ms. Math.max picks the bigger number.
-  const speed = () => Math.max(80, 800 - (game.level - 1) * 70);
-
-  // schedule: cancel any waiting tick and set up a new one.
-  const schedule = () => {
-    clearTimeout(timer);
-    timer = setTimeout(tick, speed());
-  };
-
-  // tick: what happens on every gravity tick.
-  const tick = () => {
-    if (!game.paused && !game.over) step(game); // gravity: one row down
-    render(game);                               // redraw
-    schedule();                                 // set up the next tick
-  };
-
-  // quit: put the terminal back to normal and end the program.
-  const quit = () => {
-    clearTimeout(timer);
-    process.stdout.write(ESC + '?25h' + ESC + '2J' + ESC + 'H'); // cursor on, clear
-    console.log(`Score: ${game.score}  Lines: ${game.lines}`);
-    process.exit(0); // 0 means "ended normally"
-  };
-
-  // RAW MODE: normally the terminal collects a whole line and only gives it
-  // to the program after you press Enter. In raw mode every key press is sent
-  // immediately, which a game needs.
-  process.stdin.setRawMode(true);
-  process.stdin.resume();             // start listening to the keyboard
-  process.stdin.setEncoding('utf8');  // give us key presses as text
-  process.stdout.write(ESC + '?25l' + ESC + '2J'); // hide cursor, clear screen
-
-  // stdin.on('data', f): "every time a key is pressed, call f with that key".
-  //
-  // What arrives for each key:
-  //   letters are themselves: 'q', 'p', 'a', ...
-  //   an arrow key sends 3 characters: ESC [ and a letter.
-  //     up = '\x1b[A'   down = '\x1b[B'   right = '\x1b[C'   left = '\x1b[D'
-  //   Ctrl+C arrives as character number 3, written '\u0003'.
-  process.stdin.on('data', (key) => {
-    // || means OR for conditions: either one is enough.
-    if (key === 'q' || key === '\u0003') return quit();
-    if (key === 'r' && game.over) {
-      game = newGame(); // a brand new game
-      render(game);
-      return schedule();
-    }
-    if (key === 'p') {
-      game.paused = !game.paused; // flip: true becomes false, false becomes true
-      return render(game);
-    }
-    if (game.paused || game.over) return; // ignore other keys while stopped
-
-    // `switch` compares `key` with each `case` and runs the code after the one
-    // that matches, up to the next `break`. Two cases in a row share the code.
-    switch (key) {
-      case '\x1b[D': case 'a': tryMove(game, -1, 0); break;    // left
-      case '\x1b[C': case 'd': tryMove(game, 1, 0); break;     // right
-      case '\x1b[A': case 'w': tryMove(game, 0, 0, 1); break;  // rotate
-      case '\x1b[B': case 's':                                 // down (soft drop)
-        if (tryMove(game, 0, 1)) game.score += 1;              // 1 point per row
-        break;
-      case ' ':                                                // space: hard drop
-        hardDrop(game);
-        schedule(); // the new piece gets a full tick before it starts falling
-        break;
-      default: return; // any other key: do nothing, don't even redraw
-    }
-    render(game); // show the result of the key
-  });
-
-  // When the program ends for any reason, show the cursor again, so the
-  // terminal isn't left without one.
-  process.on('exit', () => process.stdout.write(ESC + '?25h'));
-
-  render(game); // first picture
-  schedule();   // start gravity
+// colorAt: the colour number (0..7) of one cell in a set of 3 planes.
+// `bit` is the cell's column bit (column 0 = 512 ... column 9 = 1).
+// (plane[row] & bit) is not 0 when the plane has that cell; `? 1 : 0` turns
+// that into 1 or 0. Plane 0 is worth 1, plane 1 worth 2, plane 2 worth 4.
+function colorAt(planes, row, bit) {
+  return ((planes[0][row] & bit) ? 1 : 0)
+       | ((planes[1][row] & bit) ? 2 : 0)
+       | ((planes[2][row] & bit) ? 4 : 0);
 }
 
-// `require.main === module` is true only when this file was started directly
-// (`node tetris.js`). When the TEST file loads this file with require(), it
-// is false, so the game doesn't start; the tests just use the functions.
-if (require.main === module) run();
-
-// module.exports lists what other files get when they require() this file.
-// The tests use these to check the algorithm without a terminal.
-module.exports = {
-  WIDTH, HEIGHT, FULL, SHAPES, PIECES, rotate, turn, emptyBoard, fits, lock, clearLines,
-  newGame, step, hardDrop, tryMove, shiftRow, PAD,
+// The list of names other files may import from this module.
+export {
+  WIDTH, HEIGHT, FULL, SHAPES, PIECES, COLOR, rotate, turn,
+  emptyBoard, emptyPlanes, fits, lock, clearLines, shiftRow, PAD,
+  newGame, step, hardDrop, tryMove, shapeOf, view, colorAt,
 };
