@@ -1,9 +1,9 @@
 // =============================================================================
-//  TETRIS IN THE BROWSER: drawing and controls
+//  BIT ROWS IN THE BROWSER: drawing and controls
 // =============================================================================
 //
 //  This file SHOWS the game in a web page and reads keys and buttons. The game
-//  itself (board, pieces, rules) is in tetris-core.js: read that file first.
+//  itself (board, pieces, rules) is in core.js: read that file first.
 //
 //  THE DOM
 //  -------
@@ -16,12 +16,12 @@
 //
 //  THE IDEA: DISPLAY MEMORY
 //  ------------------------
-//  Like writing to video memory on an old PC, we create the 200 board cells
+//  Like writing to video memory on an old PC, we create the 189 board cells (9 x 21)
 //  ONCE, keep them in a list (our "display memory"), and from then on only
 //  change the cells that changed. Nothing is ever rebuilt.
 //
 //  To find what changed, we keep a copy of what is on screen now (`shown`:
-//  3 colour planes, see tetris-core.js) and compare it with the new picture,
+//  3 colour planes, see core.js) and compare it with the new picture,
 //  row by row, using XOR:
 //
 //      a ^ b   XOR: bit is 1 when a and b DIFFER in that position.
@@ -35,7 +35,7 @@
 import {
   WIDTH, HEIGHT, PIECES, COLOR, emptyPlanes,
   newGame, step, hardDrop, tryMove, view, colorAt,
-} from './tetris-core.js';
+} from './core.js';
 
 // document.getElementById('board') finds the element with id="board" in
 // index.html. We look each one up once and keep it.
@@ -52,6 +52,12 @@ const messageEl = document.getElementById('message');
 //  BUILD THE PAGE ONCE
 // -----------------------------------------------------------------------------
 
+// Tell the CSS how many columns and rows the board has. style.css reads them
+// as var(--cols) and var(--rows), so the size is set in ONE place: core.js.
+// document.documentElement is the <html> element (the CSS ":root").
+document.documentElement.style.setProperty('--cols', WIDTH);
+document.documentElement.style.setProperty('--rows', HEIGHT);
+
 // makeElements: create `count` new <div> elements inside `parent`, give each
 // the class(es) in `className`, and return them as a list.
 //   document.createElement('div')  makes a new element (not on the page yet)
@@ -65,14 +71,14 @@ const makeElements = (parent, count, className) =>
     return el;
   });
 
-// The board's 200 cells, all empty (c0), in a flat list:
-// row r, column c is cells[r * 10 + c].
+// The board's 189 cells, all empty (c0), in a flat list:
+// row r, column c is cells[r * 9 + c].
 const cells = makeElements(boardEl, WIDTH * HEIGHT, 'cell c0');
 
 // The 16 cells of the "next piece" box.
 const nextCells = makeElements(nextEl, 16, 'cell c0');
 
-// The 20 row-number labels. Every row starts empty, so every label starts
+// The 21 row-number labels. Every row starts empty, so every label starts
 // at 0. (render only touches rows that CHANGE, so a row that stays empty
 // would otherwise never get its 0.)
 const rownums = makeElements(rownumsEl, HEIGHT, 'rownum');
@@ -113,7 +119,7 @@ function render(game) {
     if (changed === 0) continue; // nothing changed in this row: skip it
 
     for (let c = 0; c < WIDTH; c++) {
-      const bit = 1 << (WIDTH - 1 - c); // column 0 = 512 ... column 9 = 1
+      const bit = 1 << (WIDTH - 1 - c); // column 0 = 256 ... column 8 = 1
       if (changed & bit) {
         // Only this cell changed. Give it the class of its new colour:
         // 'cell c0' for empty, 'cell c3' for a T block, and so on.

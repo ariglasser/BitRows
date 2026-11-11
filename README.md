@@ -1,38 +1,38 @@
-# Tetris (bit rows)
+# Bit Rows
 
-Tetris in plain JavaScript, rewritten from a university assembler version
-using the same algorithm. Plays in the **browser** and in the **terminal**.
+A falling-blocks game in plain JavaScript, rewritten from a university
+assembler version using the same algorithm. Plays in the **browser** and in the **terminal**.
 No frameworks, no dependencies. Every file is commented for learning: start
-with `tetris-core.js`.
+with `core.js`.
 
 ## Files
 
 | File | What it is |
 | --- | --- |
-| `tetris-core.js` | The game: board, pieces, rotation, rules. Shared by both versions. |
+| `core.js` | The game: board, pieces, rotation, rules. Shared by both versions. |
 | `index.html`, `style.css`, `browser.js` | The browser version |
 | `manifest.webmanifest`, `sw.js`, `icons/` | Make the browser version an installable, offline app |
 | `terminal.js` | The terminal version |
-| `tetris.test.js` | Tests for the core |
+| `core.test.js` | Tests for the core |
 
 ## The algorithm
 
-1. The board is an array of 20 integers, one per row.
-2. Each row uses 10 bits, one per column: `0` is an empty row, `1023` is a
-   full row. Column 0 (left) is bit 512, column 9 (right) is bit 1.
+1. The board is a 9 x 21 grid: an array of 21 integers, one per row.
+2. Each row uses 9 bits, one per column: `0` is an empty row, `511` is a
+   full row. Column 0 (left) is bit 256, column 8 (right) is bit 1.
 3. A piece is 4 small integers: its rows inside a 4x4 box. Only rotation 0 is
    written by hand; rotations 1-3 are made by turning it 90 degrees.
 4. To test a position, each piece row is shifted to the piece's column and
    superimposed on the board row with AND. If every AND gives `0`, the piece
    fits and gravity tests the next row down.
 5. When the next row does not fit, the piece is merged into the board with OR.
-6. Every row equal to `1023` is removed and a `0` row is added on top.
-7. The side walls are bits just outside the 10 columns, so a wall hit is the
+6. Every row equal to `511` is removed and a `0` row is added on top.
+7. The side walls are bits just outside the 9 columns, so a wall hit is the
    same AND test.
-8. Colours are kept in 3 **bit planes** (3 more boards of 20 integers), like
+8. Colours are kept in 3 **bit planes** (3 more boards of 21 integers), like
    old EGA video cards: a cell's colour number 1-7 is spread over the planes,
    one bit each.
-9. The browser version creates its 200 cells once and updates only the cells
+9. The browser version creates its 189 cells once and updates only the cells
    that changed, found with XOR: `newRow ^ shownRow` has a 1 exactly on the
    changed cells.
 

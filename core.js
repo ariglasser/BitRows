@@ -1,5 +1,5 @@
 // =============================================================================
-//  TETRIS CORE: THE GAME ITSELF, WRITTEN TO BE READ AND LEARNED FROM
+//  BIT ROWS CORE: THE GAME ITSELF, WRITTEN TO BE READ AND LEARNED FROM
 // =============================================================================
 //
 //  This file holds the game's rules and its board, and NOTHING about how the
@@ -27,22 +27,22 @@
 //
 //  THE ALGORITHM IN ONE PARAGRAPH
 //  ------------------------------
-//  The board has 20 rows and 10 columns. Each row is stored as ONE whole
-//  number. Each of its 10 columns is one "bit" of that number: 1 = a block
-//  is there, 0 = empty. An empty row is the number 0. A full row (all 10
-//  bits set) is the number 1023. A falling piece is also stored as small
+//  The board has 21 rows and 9 columns. Each row is stored as ONE whole
+//  number. Each of its 9 columns is one "bit" of that number: 1 = a block
+//  is there, 0 = empty. An empty row is the number 0. A full row (all 9
+//  bits set) is the number 511. A falling piece is also stored as small
 //  numbers, one per row. To ask "does the piece fit here?" we put each piece
 //  row on top of the board row with the AND operation. If the result is 0,
 //  no block of the piece sits on a block of the board, so it fits, and the
 //  piece may move down one more row. When it no longer fits, the piece is
-//  glued into the board with the OR operation, and any row that became 1023
+//  glued into the board with the OR operation, and any row that became 511
 //  is removed.
 // =============================================================================
 
 // THIS FILE IS A "MODULE"
 // A module is a file that shares some of its names with other files. Names
 // marked with the word `export` (see the end of this file) can be used by any
-// file that says  import { ... } from './tetris-core.js'.
+// file that says  import { ... } from './core.js'.
 // Modules automatically run in JavaScript's "strict mode": the computer
 // complains about common mistakes (like using a name you never declared)
 // instead of silently guessing.
@@ -57,27 +57,27 @@
 //  1. Each digit is called a "bit". Reading from the RIGHT, each position is
 //  worth double the one before it:
 //
-//      position:   9    8    7    6    5    4    3    2    1    0
-//      worth:    512  256  128   64   32   16    8    4    2    1
+//      position:   8    7    6    5    4    3    2    1    0
+//      worth:    256  128   64   32   16    8    4    2    1
 //
 //  A binary number's value is the sum of the worths where the bit is 1.
-//  Example: binary 0000110000 has 1s at positions 5 and 4 -> 32 + 16 = 48.
+//  Example: binary 000110000 has 1s at positions 5 and 4 -> 32 + 16 = 48.
 //
 //  In JavaScript you can write a binary number directly by starting it with
 //  0b. So 0b110000 is the same number as 48. We use this for the pieces below
 //  because you can SEE the shape in the 1s and 0s.
 //
 //  OUR BOARD ROW
-//  We use the 10 lowest bits of a number as the 10 columns of one row.
-//  We decide that the LEFT column (column 0) is the BIG bit (worth 512), and
-//  the RIGHT column (column 9) is the small bit (worth 1). That way, when you
+//  We use the 9 lowest bits of a number as the 9 columns of one row.
+//  We decide that the LEFT column (column 0) is the BIG bit (worth 256), and
+//  the RIGHT column (column 8) is the small bit (worth 1). That way, when you
 //  write the number in binary, it looks exactly like the row on screen:
 //
-//      screen:   . . . . [][] . . . .     (blocks in columns 4 and 5)
-//      binary:   0 0 0 0 1 1  0 0 0 0  = 0b0000110000 = 48
+//      screen:   . . . [][] . . . .     (blocks in columns 3 and 4)
+//      binary:   0 0 0 1 1  0 0 0 0  = 0b000110000 = 48
 //
 //  THE FOUR BIT OPERATIONS WE NEED
-//  They work on every bit position separately, like 10 tiny calculations
+//  They work on every bit position separately, like 9 tiny calculations
 //  done at once.
 //
 //    a & b   AND: bit is 1 only if it is 1 in BOTH a AND b.
@@ -98,15 +98,15 @@
 
 // `const` creates a name for a value that will never change.
 // (`let`, used later, creates a name whose value CAN change.)
-const WIDTH = 10;   // columns in a row
-const HEIGHT = 20;  // rows on the board
+const WIDTH = 9;    // columns in a row
+const HEIGHT = 21;  // rows on the board
 
-// The number for a FULL row: all 10 bits set to 1.
-//   1 << 10      is binary 10000000000 (a 1 followed by ten 0s) = 1024
-//   1024 - 1     is binary  1111111111 (ten 1s)                 = 1023
+// The number for a FULL row: all 9 bits set to 1.
+//   1 << 9       is binary 1000000000 (a 1 followed by nine 0s) = 512
+//   512 - 1      is binary  111111111 (nine 1s)                 = 511
 // (Subtracting 1 from "1 followed by zeros" always gives "all ones",
 // just like 1000 - 1 = 999 in decimal.)
-const FULL = (1 << WIDTH) - 1; // = 1023
+const FULL = (1 << WIDTH) - 1; // = 511
 
 
 // =============================================================================
@@ -211,27 +211,29 @@ const COLOR = { I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7 };
 //  piece has a position x = the board column where the LEFT edge of its 4x4
 //  box is. We must slide the 4 bits left so they land under columns x..x+3.
 //
-//  Board column c is bit number (9 - c):  column 0 -> bit 9, column 9 -> bit 0.
+//  Board column c is bit number (8 - c):  column 0 -> bit 8, column 8 -> bit 0.
 //  The box's left column is bit 3 of the piece row. We want it to become bit
-//  (9 - x). So we shift left by (9 - x) - 3 = 6 - x.
+//  (8 - x). So we shift left by (8 - x) - 3 = 5 - x.
+//  (In general, with WIDTH columns: WIDTH - 4 - x. The code uses that, so
+//  the board width can be changed in one place.)
 //
-//      Example: piece row 0b0110, x = 3.  Shift = 6 - 3 = 3.
-//      0b0110 << 3 = 0b0110000 = 48 = columns 4 and 5. Correct!
+//      Example: piece row 0b0110, x = 2.  Shift = 5 - 2 = 3.
+//      0b0110 << 3 = 0b0110000 = 48 = columns 3 and 4. Correct!
 //
 //  THE WALLS (the PAD trick)
 //  -------------------------
-//  Problem 1: when x is 7, 8 or 9, the shift 6 - x is negative (-1, -2, -3),
+//  Problem 1: when x is 6, 7 or 8, the shift 5 - x is negative (-1, -2, -3),
 //  and "shift left by -1" makes no sense.
 //  Problem 2: we need to notice when a piece pokes out of the left or right
 //  side of the board.
 //
 //  Solution: we do our test with 3 extra empty bits on the right ("padding").
 //  Everything is shifted 3 more places to the left, so the shift becomes
-//  6 - x + 3 = 9 - x, which is never negative for x up to 9. In this padded
-//  world the 10 real columns are bits 12..3, and every other bit is "wall".
+//  5 - x + 3 = 8 - x, which is never negative for x up to 8. In this padded
+//  world the 9 real columns are bits 11..3, and every other bit is "wall".
 //
-//      bit:     ...15 14 13 | 12 11 10  9  8  7  6  5  4  3 | 2  1  0
-//               wall wall.. |        the 10 real columns     | wall wall wall
+//      bit:     ...14 13 12 | 11 10  9  8  7  6  5  4  3 | 2  1  0
+//               wall wall.. |     the 9 real columns      | wall wall wall
 //
 //  If any bit of a shifted piece lands on a wall bit, the piece hit a wall.
 //  Again that is a single AND test, just like checking the blocks. This is the
@@ -241,7 +243,7 @@ const COLOR = { I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7 };
 //  -------------------
 //  The board says only WHETHER a cell is full (1 bit per cell), not WHICH
 //  piece filled it. To remember colours we use the trick old video cards (EGA)
-//  used: BIT PLANES. We keep 3 more boards, exactly like the main one: 20
+//  used: BIT PLANES. We keep 3 more boards, exactly like the main one: 21
 //  numbers each. A cell's colour number (1..7) is written in binary across
 //  them, one bit per plane:
 //
@@ -259,7 +261,7 @@ const COLOR = { I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7 };
 const PAD = 3; // the number of extra bits on the right
 
 // The wall mask: a number with 1s on every bit that is NOT a real column.
-//   FULL << PAD       = 1023 shifted 3 left = 1s on bits 12..3 (the columns)
+//   FULL << PAD       = 511 shifted 3 left = 1s on bits 11..3 (the columns)
 //   ~(that)           = flip every bit      = 1s everywhere else (the walls)
 const WALLS = ~(FULL << PAD);
 
@@ -271,12 +273,12 @@ const WALLS = ~(FULL << PAD);
 // shiftRow: slide one 4-bit piece row so the box's left edge is at column x,
 // in the padded world (see above).
 function shiftRow(bits, x) {
-  return bits << (6 - x + PAD);
+  return bits << (WIDTH - 4 - x + PAD); // = 5 - x + 3 on our 9-wide board
 }
 
-// emptyBoard: make a new board = an array of 20 zeros (20 empty rows).
-// `new Array(HEIGHT)` makes a list with 20 empty slots; `.fill(0)` puts 0 in
-// each. board[0] is the TOP row, board[19] is the BOTTOM row.
+// emptyBoard: make a new board = an array of 21 zeros (21 empty rows).
+// `new Array(HEIGHT)` makes a list with 21 empty slots; `.fill(0)` puts 0 in
+// each. board[0] is the TOP row, board[20] is the BOTTOM row.
 function emptyBoard() {
   return new Array(HEIGHT).fill(0);
 }
@@ -306,7 +308,7 @@ function fits(board, shape, x, y) {
     //    share at least one bit".
     if (piece & WALLS) return false;
 
-    // 2) Floor test: row 19 is the last row; row 20 or more is below it.
+    // 2) Floor test: row 20 is the last row; row 21 or more is below it.
     if (row >= HEIGHT) return false;
 
     // 3) Above the top of the board there is nothing to hit, so this row is OK.
@@ -321,7 +323,7 @@ function fits(board, shape, x, y) {
   return true;
 }
 
-// emptyPlanes: 3 empty colour planes (3 boards of 20 zeros).
+// emptyPlanes: 3 empty colour planes (3 boards of 21 zeros).
 // [1, 2, 3].map(f) runs f for each item and collects the answers in a new
 // list. Here we ignore the items and just make 3 empty boards.
 function emptyPlanes() {
@@ -338,7 +340,7 @@ function lock(board, planes, shape, x, y, color) {
     // Only touch rows that have piece blocks and are really on the board.
     if (shape[i] && row >= 0 && row < HEIGHT) {
       // shiftRow(...) is in the padded world, so >> PAD shifts it back to the
-      // normal 10-bit row.
+      // normal 9-bit row.
       const bits = shiftRow(shape[i], x) >> PAD;
       // Glue it into the board. `a |= b` is short for `a = a | b`.
       board[row] |= bits;
@@ -351,13 +353,13 @@ function lock(board, planes, shape, x, y, color) {
   }
 }
 
-// clearLines: remove every row equal to FULL (1023) and let the rows above
+// clearLines: remove every row equal to FULL (511) and let the rows above
 // fall down, in the board AND in the 3 colour planes, so colours fall too.
 // Returns how many rows were removed (0 to 4).
 function clearLines(board, planes) {
   let cleared = 0; // `let` because this number changes as we count
 
-  // Walk from the bottom row (19) up to the top row (0). row-- means row = row - 1.
+  // Walk from the bottom row (20) up to the top row (0). row-- means row = row - 1.
   for (let row = HEIGHT - 1; row >= 0; row--) {
     if (board[row] === FULL) {
       // [board, ...planes] is one list with the board and the 3 planes
@@ -384,8 +386,8 @@ function clearLines(board, planes) {
 //
 //  All the information about one game is kept in one object called `game`:
 //
-//    game.board    the 20 row numbers (which cells are full)
-//    game.planes   3 more lists of 20 row numbers: the colours (bit planes)
+//    game.board    the 21 row numbers (which cells are full)
+//    game.planes   3 more lists of 21 row numbers: the colours (bit planes)
 //    game.piece    the falling piece: { name, rot, x, y }
 //                    name = 'T', 'I', ...   rot = rotation 0..3
 //                    x, y = column and row of the top-left corner of its box
@@ -396,7 +398,7 @@ function clearLines(board, planes) {
 // -----------------------------------------------------------------------------
 
 // Points for clearing 0, 1, 2, 3 or 4 rows at once (times the level).
-// Clearing 4 at once ("a Tetris") is worth much more than 4 single rows.
+// Clearing 4 at once is worth much more than 4 single rows.
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
 // newGame: set up a fresh game and return it.
@@ -435,8 +437,9 @@ function pick(random) {
 // reached the top: game over.
 function spawn(game) {
   // x: centre the piece. (WIDTH - size) / 2 columns are left free on its
-  // left: 3 for the I bar and J L S T Z, 4 for the O square, so every piece
-  // appears in the middle. Math.floor rounds 3.5 down to 3.
+  // left, rounded down by Math.floor: 2 for the I bar (2.5 -> 2), 3 for
+  // J L S T Z, 3 for the O square (3.5 -> 3), so every piece appears in the
+  // middle of the 9 columns.
   // y: -1 puts the box's top row one row ABOVE the board (row -1).
   // For the I piece, whose top box row is empty, that means the bar appears
   // right away in row 0. For the other pieces, their top box row starts
@@ -531,7 +534,7 @@ function hardDrop(game) {
 //
 //  The falling piece is NOT part of the board until it lands. A display needs
 //  the board WITH the piece. view(game) makes that picture, as 3 colour planes
-//  (20 numbers each), without changing the game. Both terminal.js and
+//  (21 numbers each), without changing the game. Both terminal.js and
 //  browser.js draw from it.
 // -----------------------------------------------------------------------------
 
@@ -556,7 +559,7 @@ function view(game) {
 }
 
 // colorAt: the colour number (0..7) of one cell in a set of 3 planes.
-// `bit` is the cell's column bit (column 0 = 512 ... column 9 = 1).
+// `bit` is the cell's column bit (column 0 = 256 ... column 8 = 1).
 // (plane[row] & bit) is not 0 when the plane has that cell; `? 1 : 0` turns
 // that into 1 or 0. Plane 0 is worth 1, plane 1 worth 2, plane 2 worth 4.
 function colorAt(planes, row, bit) {

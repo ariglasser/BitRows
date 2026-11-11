@@ -5,21 +5,21 @@
 //   JavaScript itself ignores it.
 
 // =============================================================================
-//  TETRIS IN THE TERMINAL
+//  BIT ROWS IN THE TERMINAL
 // =============================================================================
 //
 //  This file only SHOWS the game in a terminal (a text window) and reads the
-//  keyboard. The game itself (board, pieces, rules) is in tetris-core.js:
+//  keyboard. The game itself (board, pieces, rules) is in core.js:
 //  read that file first.
 //
 //  Start it with:   node terminal.js     (or: npm start)
 // =============================================================================
 
-// import: take these names from the module tetris-core.js (./ means "in this
+// import: take these names from the module core.js (./ means "in this
 // same folder"). `* as T` would take all of them; here we list what we use.
 import {
   WIDTH, HEIGHT, PIECES, newGame, step, hardDrop, tryMove, view, colorAt,
-} from './tetris-core.js';
+} from './core.js';
 
 // =============================================================================
 //  DRAWING WITH TEXT
@@ -47,28 +47,28 @@ import {
 
 const ESC = '\x1b[';
 
-// Terminal colour codes for the colour numbers 0..7 from tetris-core.js
+// Terminal colour codes for the colour numbers 0..7 from core.js
 // (index 0 = empty cell, unused). 36 = cyan for the I, 33 = yellow for the O...
 const ANSI = [0, 36, 33, 35, 32, 31, 34, 37];
 
 // render: draw the whole screen once.
 function render(game) {
   // The board WITH the falling piece, as 3 colour planes (see PART 5 of
-  // tetris-core.js).
+  // core.js).
   const planes = view(game);
   const nextShape = PIECES[game.next][0]; // the next piece, rotation 0
 
   // We build the picture as a list of text lines, then print them all at once.
   // `lines.push(x)` adds x to the end of the list.
   const lines = [];
-  lines.push('  TETRIS (bit rows)');
-  // '--'.repeat(10) makes '--' ten times. The + joins pieces of text.
+  lines.push('  BIT ROWS');
+  // '--'.repeat(9) makes '--' nine times. The + joins pieces of text.
   lines.push('  +' + '--'.repeat(WIDTH) + '+');
 
   for (let r = 0; r < HEIGHT; r++) {      // for each board row, top to bottom
     let s = '  |';                        // the text for this line, so far
     for (let c = 0; c < WIDTH; c++) {     // for each column, left to right
-      // The bit for column c: column 0 is 1 << 9 = 512, column 9 is 1 << 0 = 1.
+      // The bit for column c: column 0 is 1 << 8 = 256, column 8 is 1 << 0 = 1.
       const bit = 1 << (WIDTH - 1 - c);
       // The cell's colour number: 0 = empty, 1..7 = a block of that colour.
       const color = colorAt(planes, r, bit);
@@ -82,7 +82,7 @@ function render(game) {
     // To the right of each row, show the row's NUMBER, so you can watch the
     // algorithm work: the 3 planes OR'ed together = which cells are full,
     // piece included. padStart(4) adds spaces in front so all numbers line up
-    // (e.g. '  48', '1023').
+    // (e.g. '  48', ' 511').
     const full = planes[0][r] | planes[1][r] | planes[2][r];
     s += ' ' + String(full).padStart(4);
 

@@ -1,12 +1,12 @@
 <!doctype html>
 <!--
-  TETRIS IN THE BROWSER: the page.
+  BIT ROWS IN THE BROWSER: the page.
 
   This file only describes WHAT is on the page: a board, a side panel and
   some buttons. It holds no game logic.
     style.css       says how it looks (sizes, colours)
     browser.js      fills the board and reacts to keys and buttons
-    tetris-core.js  the game itself (shared with the terminal version)
+    core.js  the game itself (shared with the terminal version)
 
   Things written between < and > are HTML "tags". Most come in pairs:
   <div> ... </div> is a box with something inside. `id="board"` gives an
@@ -18,7 +18,7 @@
   <meta charset="utf-8">
   <!-- Makes the page fit a phone screen instead of a shrunken desktop page. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>Bit-Row Tetris</title>
+  <title>Bit Rows</title>
   <link rel="stylesheet" href="style.css">
 
   <!--
@@ -33,13 +33,13 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Tetris">
+  <meta name="apple-mobile-web-app-title" content="Bit Rows">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
 </head>
 <body>
   <main class="game">
     <!--
-      The board. It starts EMPTY: browser.js creates its 200 cells once,
+      The board. It starts EMPTY: browser.js creates its 189 cells once,
       when the page loads, and never creates or deletes them again.
     -->
     <div class="well">
@@ -69,7 +69,7 @@
   </main>
 
   <!--
-    type="module" lets browser.js use `import` to load tetris-core.js.
+    type="module" lets browser.js use `import` to load core.js.
     (Modules only load from a web server, such as GitHub Pages, not from a
     file opened straight from disk.)
   -->

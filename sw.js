@@ -27,7 +27,7 @@
 // =============================================================================
 
 // The cache's name. Change the number to throw away all saved files at once.
-const CACHE = 'tetris-v1';
+const CACHE = 'bitrows-v1';
 
 // The files the game needs. They are saved when the worker is installed, so
 // the game works offline even before you have played once.
@@ -37,7 +37,7 @@ const FILES = [
   './index.html',
   './style.css',
   './browser.js',
-  './tetris-core.js',
+  './core.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',

@@ -1,7 +1,7 @@
 {
-  "name": "Bit-Row Tetris",
-  "short_name": "Tetris",
-  "description": "Tetris where each board row is a 10-bit number.",
+  "name": "Bit Rows",
+  "short_name": "Bit Rows",
+  "description": "A falling-blocks game where each board row is a 9-bit number.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

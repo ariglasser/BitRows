@@ -1,5 +1,5 @@
 /*
-  TETRIS IN THE BROWSER: how it looks.
+  BIT ROWS IN THE BROWSER: how it looks.
 
   CSS is a list of rules: a "selector" says WHICH elements, and the lines in
   { } say how they look.
@@ -33,10 +33,15 @@
 
   /*
     The size of one cell. min() takes the smaller of the two:
-    6.2vw = 6.2% of the screen's width, 4vh = 4% of its height.
+    7vw = 7% of the screen's width, 3.8vh = 3.8% of its height.
     So the board always fits, on a phone or on a big screen.
   */
-  --cell: min(6.2vw, 4vh);
+  --cell: min(7vw, 3.8vh);
+
+  /* The board size. browser.js overwrites these with WIDTH and HEIGHT from
+     core.js, so they are only a fallback. */
+  --cols: 9;
+  --rows: 21;
 }
 
 /* Dark colours when the phone or computer is set to dark mode
@@ -93,14 +98,14 @@ body {
 .board-wrap { position: relative; } /* the message is placed relative to this */
 
 /*
-  The board is a CSS GRID: 10 columns of --cell width, 20 rows of --cell
-  height. Its 200 child elements fill it in order, left to right, top to
-  bottom, so cell number 0 is top-left and number 199 is bottom-right.
+  The board is a CSS GRID: --cols columns of --cell width and --rows rows
+  of --cell height (9 x 21). Its 189 child elements fill it in order, left to
+  right, top to bottom, so cell 0 is top-left and cell 188 is bottom-right.
 */
 .board {
   display: grid;
-  grid-template-columns: repeat(10, var(--cell));
-  grid-template-rows: repeat(20, var(--cell));
+  grid-template-columns: repeat(var(--cols), var(--cell));
+  grid-template-rows: repeat(var(--rows), var(--cell));
   gap: 1px;
   background: var(--grid);     /* shows through the 1px gaps as grid lines */
   border: 2px solid var(--muted);
@@ -124,7 +129,7 @@ body {
 /* The row numbers: one per board row, same height as a cell. */
 .rownums {
   display: grid;
-  grid-template-rows: repeat(20, var(--cell));
+  grid-template-rows: repeat(var(--rows), var(--cell));
   gap: 1px;
   padding-top: 2px;            /* line up with the board's border */
   font: calc(var(--cell) * 0.45) / 1 ui-monospace, monospace;

@@ -1,10 +1,10 @@
 {
-  "name": "tetris",
+  "name": "bit-rows",
   "version": "2.0.0",
-  "description": "Tetris where each board row is a 10-bit integer, for the terminal and the browser",
+  "description": "A falling-blocks game where each board row is a 9-bit integer, for the terminal and the browser",
   "type": "module",
-  "main": "tetris-core.js",
-  "bin": { "tetris": "terminal.js" },
+  "main": "core.js",
+  "bin": { "bit-rows": "terminal.js" },
   "scripts": {
     "start": "node terminal.js",
     "test": "node --test"
