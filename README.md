@@ -11,6 +11,7 @@ with `tetris-core.js`.
 | --- | --- |
 | `tetris-core.js` | The game: board, pieces, rotation, rules. Shared by both versions. |
 | `index.html`, `style.css`, `browser.js` | The browser version |
+| `manifest.webmanifest`, `sw.js`, `icons/` | Make the browser version an installable, offline app |
 | `terminal.js` | The terminal version |
 | `tetris.test.js` | Tests for the core |
 
@@ -46,6 +47,18 @@ On a phone: drag anywhere on the screen, left or right, to move the piece
 (one column per cell your finger travels), drag down to move it down, tap to
 rotate, flick down fast to drop. Tap to continue after a pause. On a keyboard: arrows move
 and rotate, space drops, `p` pauses.
+
+### Install it as an app
+
+The browser version is a PWA (Progressive Web App): it can be installed on a
+phone or tablet and then plays full screen and offline.
+
+- Android (Chrome): open the site, menu (three dots), **Install app** or
+  **Add to Home screen**.
+- iPhone / iPad (Safari): open the site, **Share**, **Add to Home Screen**.
+
+`manifest.webmanifest` holds the app's name and icons, `sw.js` (the service
+worker) saves the files for offline play and fetches updates when online.
 
 ## Play in the terminal
 

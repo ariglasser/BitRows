@@ -368,3 +368,15 @@ document.addEventListener('visibilitychange', () => {
 
 render(game); // the first picture
 schedule();   // start gravity
+
+
+// -----------------------------------------------------------------------------
+//  INSTALLABLE APP: register the service worker (see sw.js)
+// -----------------------------------------------------------------------------
+// 'serviceWorker' in navigator: does this browser support service workers?
+// register() returns a promise; .catch ignores failures, for example when
+// the page is opened somewhere that doesn't allow service workers. The game
+// works the same without one, just not offline.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

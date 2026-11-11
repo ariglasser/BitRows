@@ -20,6 +20,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>Bit-Row Tetris</title>
   <link rel="stylesheet" href="style.css">
+
+  <!--
+    INSTALLABLE APP (PWA = "Progressive Web App")
+    manifest.webmanifest tells the phone the app's name, icon and how to open
+    it (full screen, without the browser's address bar). sw.js (registered at
+    the end of browser.js) makes it work offline.
+  -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#161615">
+  <!-- iPhone and iPad read their own tags instead of the manifest: -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tetris">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
 </head>
 <body>
   <main class="game">
