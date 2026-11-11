@@ -242,8 +242,12 @@ pauseButton.addEventListener('pointerdown', (e) => {
 //                       cell-width the finger travels
 //   drag down           one row down for every cell-height (soft drop)
 //   flick down fast     hard drop
-//   double tap          rotate
-//   tap                 continue when paused, new game after game over
+//   tap                 rotate (or: continue when paused, new game after
+//                       game over)
+//
+//  The finger can be ANYWHERE on the page, not only on the piece: the
+//  listeners below are on `document` (the whole page), and only the finger's
+//  MOVEMENT matters, not where it started.
 //
 //  POINTER EVENTS
 //  The browser reports a finger (or mouse, or pen) as a "pointer":
@@ -265,12 +269,10 @@ pauseButton.addEventListener('pointerdown', (e) => {
 
 const TAP_MOVE = 10;       // a touch that moves less than 10 px is a tap
 const TAP_TIME = 250;      // ...and lasts less than 250 ms
-const DOUBLE_TAP = 300;    // two taps within 300 ms = double tap
 const FLICK_SPEED = 1.2;   // px per ms: a downward flick faster than this drops
 
 // The state of the finger currently on the screen (null when none).
 let touch = null;
-let lastTapTime = 0;
 
 // cellSize: the width of one board cell on screen, in pixels, measured now
 // (it depends on the screen size). getBoundingClientRect() gives an
@@ -341,17 +343,9 @@ document.addEventListener('pointerup', (e) => {
 
   // A TAP: short and almost no movement.
   if (Math.abs(dx) < TAP_MOVE && Math.abs(dy) < TAP_MOVE && time < TAP_TIME) {
-    if (game.over || game.paused) {
-      act(game.over ? 'restart' : 'pause'); // new game, or continue
-      return;
-    }
-    // Second tap soon after the first one: a double tap = rotate.
-    if (e.timeStamp - lastTapTime < DOUBLE_TAP) {
-      act('rotate');
-      lastTapTime = 0; // a third tap starts a new pair
-    } else {
-      lastTapTime = e.timeStamp;
-    }
+    if (game.over) act('restart');        // new game
+    else if (game.paused) act('pause');   // continue
+    else act('rotate');
     return;
   }
 
